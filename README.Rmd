@@ -1,0 +1,64 @@
+---
+title: "README"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+List of all used functions, their descriptions and connections between functions
+================================================================================
+
+FUNCTION: data()
+
+This funtion is used to load the data. It uses two arguments:
+1. data_path: path to the table with data
+2. columns_path: path to the table with names of columns
+
+FUNCTION: merge_data()
+
+This function loads training and test data sets using function "data" and
+merges them together. Training data is listed in the begining of the merged
+data set. Here is assumed that the source directory "UCI HAR Dataset" - which
+includes the training and test data sets - is located in working directory. This
+function is used to solve the first assignment.
+
+FUNCTION: extract_data()
+
+This function extracts only the measurements on the mean and standard
+deviation for each measurement from original data set. It uses function
+result from merge_data() function as input.
+It is used to solve the second assignment.
+
+FUNCTION: translate_labels()
+
+This function takes activity labels from "y_train.txt" and "y_test.txt"
+(possible values 1 - 6) and translates these labels into human-readable form
+using following rules:
+1 - WALKING
+2 - WALKING_UPSTAIRS
+3 - WALKING_DOWNSTAIRS
+4 - SITTING
+5 - STANDING
+6 - LAYING
+These rules are taken from table "activity_labels.txt"
+Note: This function also already merges the activity label data for
+training and test data sets.
+This function is used to solve the third assignment.
+
+FUNCTION: label_data()
+
+This function labels data set by activity labels. As the data set result from
+extract_data() function is used. As labels the result from translate_labels()
+function.
+label_data() is used to solve the forth assignment.
+
+FUNCTION: final_tidy_data_frame()
+
+This final function calculates the average of each variable for each activity
+and each subject for data set which is obtained by label_data(). To introduce 
+subjects into the data set, the files "subject_train.txt" and "subject_train.txt"
+are used.
+In addition final_tidy_data_frame() brings the result into a tidy format and
+arranges the result by subject and activity.
