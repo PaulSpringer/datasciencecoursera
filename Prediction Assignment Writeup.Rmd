@@ -1,0 +1,212 @@
+---
+title: Predictions on how well barbell lifts are performed based on accelerometers
+  data
+author: "Paul Springer"
+date: "30 7 2019"
+output:
+  pdf_document: default
+  html_document: null
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r Libraries, message = FALSE, warning = FALSE}
+# Used libraries
+library(ggplot2)
+library(caret)
+library(rpart)
+library(e1071)
+library(rattle)
+library(randomForest)
+library(mgcv)
+```
+
+```{r getlabels, echo = FALSE}
+labs = knitr::all_labels()
+labs = labs[!labs %in% c("setup", "toc", "getlabels", "allcode")]
+```
+
+# Synposis
+
+We investigate data from [here][1]. There is a training data set and a testing set. We train our models to predict the variable "classe" (present in training and absent in testing data set). As models, we use SVM, Decision trees and random forest. We also consider an ensemble of all three models.
+
+# Data Preparation
+
+First we load training and testing data from working directory and consider the
+structure of the training data
+
+```{r LoadData}
+# Load data
+input_training <- read.csv("pml-training.csv", stringsAsFactors = FALSE)
+input_testing <- read.csv("pml-testing.csv", stringsAsFactors = FALSE)
+```
+
+The training set consists of 19622 observations with 160 variables (s. Appendix, table in sub-section "Structure Table for Training Data"). We do not need all of
+them. Since they do not discribe a particular movement, we drop variables "X",
+"user-name", "raw_timestamp_part_1", "raw_timestamp_part_2 ", "cvtd_timestamp",
+"new_window" and "num_window". We treat all other variables except of "classe" 
+as numeric. We do the same for testing set (test has no variable "classe" but
+variable "problem_id).
+
+```{r dropSomeVariables, warning = FALSE}
+# Delete variables which will not be used
+training <- cbind(as.data.frame(lapply(input_training[, 8:159], as.numeric)),
+                  classe = input_training$classe)
+testing <- cbind(as.data.frame(lapply(input_testing[, 8:159], as.numeric)),
+                  problem_id = input_testing$problem_id)
+```
+
+
+It is noticeable that a lot of variables in training and testing sets do not 
+include any values (all values of a variable are NAs). We also drop those variables which are NA in
+testing data set (applied to both data sets). We stay with 52 predictors and 1
+responce variable. All predictors do not include any NAs values.
+
+```{r DealingWithNAs}
+# Consider only variables which are present (not NA) in testing data set
+training <- training[, colSums(is.na(testing)) != nrow(testing)]
+testing <- testing[, colSums(is.na(testing)) != nrow(testing)]
+```
+
+# Data spliting
+
+Since we have a lot of observations in training data set, we can split it into actual training
+part (70%) and cross-testing part (30%) (seed was set to 2019)
+
+```{r TrainingSplitting}
+# Split training data into true training part and cross-testing part
+set.seed(2019)
+inTrain <- createDataPartition(training$classe, p = 0.7, list = FALSE)
+Ttraining <- training[inTrain, ]
+Ttesting <- training[-inTrain, ]
+```
+
+# Data Scaling
+
+Since one of the models we use is SVM, we should scale our data. We perform standard normalization using mean and standard deviation. To determine these parameters, actual training set is used. These parameters are also applied to cross-testing and testing data. For decision trees and random forest, we omit scaling.
+
+```{r Normalization}
+# Parameters for normalization
+means <- as.data.frame(lapply(Ttraining[, 1:52], mean))
+sds <- as.data.frame(lapply(Ttraining[, 1:52], sd))
+Ttraining_norm <- cbind(as.data.frame(scale(Ttraining[,1:52], center = means,
+                                            scale = sds)),
+                        classe = Ttraining$classe)
+Ttesting_norm <- cbind(as.data.frame(scale(Ttesting[,1:52], center = means,
+                                           scale = sds)),
+                        classe = Ttesting$classe)
+testing_norm <- cbind(as.data.frame(scale(testing[,1:52], center = means,
+                                          scale = sds)),
+                        problem_id = testing$problem_id)
+```
+
+# Models
+
+## SVM
+
+Now, we train SVM model. Note that we have already performed scaling of data befor.
+
+```{r TrainSVM, cache = TRUE}
+SVM_model <- svm(classe ~ ., data = Ttraining_norm, scale = FALSE)
+SVM_pred_Ttraining <- predict(SVM_model, Ttraining_norm)
+acc_SVM_Ttraining <- confusionMatrix(SVM_pred_Ttraining, Ttraining_norm$classe)
+SVM_pred_Ttesting <- predict(SVM_model, Ttesting_norm)
+acc_SVM_Ttesting <- confusionMatrix(SVM_pred_Ttesting, Ttesting_norm$classe)
+acc_SVM_Ttraining$overall[1]
+acc_SVM_Ttesting$overall[1]
+```
+
+The accuracy of SVM model on actual training set is 95.65% and on cross-testing set 94.56%!
+
+## Decision Trees
+
+Now, we consider decision trees (default settings)
+
+```{r TrainTrees, cache = TRUE, warning = FALSE}
+tree_model <- rpart(classe ~ ., data = Ttraining, method = "class")
+fancyRpartPlot(tree_model)
+tree_pred_Ttraining <- predict(tree_model, Ttraining, type = "class")
+acc_tree_Ttraining <- confusionMatrix(tree_pred_Ttraining,
+                                      Ttraining$classe)
+tree_pred_Ttesting <- predict(tree_model, Ttesting, type = "class")
+acc_tree_Ttesting <- confusionMatrix(tree_pred_Ttesting, Ttesting$classe)
+acc_tree_Ttraining$overall[1]
+acc_tree_Ttesting$overall[1]
+```
+
+The accuracy of decision trees model on actual training set is 75.72% and on cross-testing set 75.24%!
+
+## Random Forest
+
+Now, we consider random forest (default settings)
+
+```{r TrainRF, cache = TRUE}
+rf_model <- randomForest(classe ~ ., data = Ttraining)
+rf_pred_Ttraining <- predict(rf_model, Ttraining)
+acc_rf_Ttraining <- confusionMatrix(rf_pred_Ttraining,
+                                      Ttraining$classe)
+rf_pred_Ttesting <- predict(rf_model, Ttesting)
+acc_rf_Ttesting <- confusionMatrix(rf_pred_Ttesting, Ttesting$classe)
+acc_rf_Ttraining$overall[1]
+acc_rf_Ttesting$overall[1]
+```
+
+The accuracy of random forest model on actual training set is 100% and on cross-testing set 99.56%!
+
+## Ensemble model
+
+Now, we consider an ensemble consisting of our previous SVM, decision tree and random forest models. We combine them using random forest since it seems to perform very weel
+
+```{r TrainEnsamble, cache = TRUE, message = FALSE}
+newdata_Ttraining = data.frame(classe = Ttraining$classe,
+                               SVM = SVM_pred_Ttraining,
+                               tree = tree_pred_Ttraining,
+                               rf = rf_pred_Ttraining)
+ens_model <- randomForest(classe ~ ., data = newdata_Ttraining)
+ens_pred_Ttraining <- predict(ens_model, newdata_Ttraining)
+acc_ens_Ttraining <- confusionMatrix(ens_pred_Ttraining,
+                                      newdata_Ttraining$classe)
+newdata_Ttesting = data.frame(classe = Ttesting$classe,
+                              SVM = SVM_pred_Ttesting,
+                              tree = tree_pred_Ttesting,
+                              rf = rf_pred_Ttesting)
+ens_pred_Ttesting <- predict(ens_model, newdata_Ttesting)
+acc_ens_Ttesting <- confusionMatrix(ens_pred_Ttesting, newdata_Ttesting$classe)
+acc_ens_Ttraining$overall[1]
+acc_ens_Ttesting$overall[1]
+```
+The accuracy of random forest model on actual training set is 100% and on cross-testing set 99.54%!
+
+## Final testing
+
+We see that SVM, random forest and our ensamble are performing amazingly well. Since random forest provides best accuracy on cross-testing set. We apply it to our final testing set which is not labeld with "classe".
+
+```{r FinalTesting, cache = TRUE}
+rf_pred_testing <- predict(rf_model, testing)
+rf_pred_testing
+```
+
+## Conclusion
+
+On considered data set, random forest performs better than SVM, decision trees and even ensemble. SVM performs also very well.
+
+# References
+
+
+[1]:http://groupware.les.inf.puc-rio.br/har
+
+# Appendix
+
+## Structure Table for Training Data
+
+```{r StrTrainingSet}
+# Structure of training set
+str(input_training)
+```
+
+## Code
+
+```{r allcode, ref.label = labs, eval = FALSE, echo=TRUE}
+```
