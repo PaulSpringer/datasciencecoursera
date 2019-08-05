@@ -1,0 +1,57 @@
+---
+title: 'Course Project: Shiny App Pitch'
+author: "Paul Springer"
+date: "5th of August 2019"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## General App Description
+
+This App allows the user to predict tooth length of a pig depending on the dosage
+of vitamin C and on the delivery method of vitamin C. Two delivery methoda are
+considered: OJ - orange juice and VC - ascorbin acid. The data are taken from
+standard R data set ToothGrowth.
+
+## Available Regression Models
+
+The User can decide between linear or quadratic prediction models. Model choice strongly
+influences the predictions. Here is an example for OJ and dosage = 1:
+
+```{r}
+data("ToothGrowth")
+```
+
+
+```{r, echo = TRUE}
+modelOJ_lin <- lm(len ~ dose, data = ToothGrowth[ToothGrowth$supp ==
+                                                         "OJ", ])
+modelOJ_quad <- lm(len ~ dose + I(dose^2), data =
+                           ToothGrowth[ToothGrowth$supp == "OJ", ])
+predict(modelOJ_lin, newdata = data.frame(dose = 1))
+predict(modelOJ_quad, newdata = data.frame(dose = 1))
+```
+
+
+## Data used
+
+```{r, echo = TRUE}
+head(ToothGrowth)
+str(ToothGrowth)
+```
+
+## Resources
+
++ The Application can be found under following link:
+
+https://paulspringer.shinyapps.io/projectapp/
+
++ Documentation of the application is included in application itself in tab 
+"Documentation".
+
++ The source code (ui.R and server.R) and this presentation can be found under:
+
+https://github.com/PaulSpringer/datasciencecoursera
